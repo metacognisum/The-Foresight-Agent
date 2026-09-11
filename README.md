@@ -1,41 +1,44 @@
 # The Foresight Agent
 
-**Predict evidence. Anticipate beliefs. Check the next decision.**
+**What will the agent believe after its next action—and will the evidence justify it?**
 
 [![Tests](https://github.com/metacognisum/The-Foresight-Agent/actions/workflows/tests.yml/badge.svg)](https://github.com/metacognisum/The-Foresight-Agent/actions/workflows/tests.yml)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 
-Foresight is an experimental agent-control kernel that checks whether an action's
-predicted evidence would justify the agent's next belief and decision. It explores
-how to detect unsupported conclusions before they propagate through a task.
+Foresight explores this question through explicit predictions of evidence, beliefs,
+and decisions. Its Python control kernel checks whether an anticipated conclusion
+is supported before recommending an action, then compares the forecast with what
+actually happened.
 
-> **Research preview · 0.1.0a1.** The repository contains a working Python kernel,
-> offline demo, and tests. Forecasts are currently scripted. A live autonomous agent
-> and empirical evidence of improvement are future work.
+**Research preview · 0.1.0a1 · Offline demo · Scripted forecasts**
 
-## Why Foresight?
+[Run the demo](#run-the-demo) · [How it works](#how-it-works) ·
+[Python guide](docs/usage.md) · [Research](#research-foundations) ·
+[Contribute](CONTRIBUTING.md)
 
-An action can execute successfully while leading to the wrong conclusion. Reading
-an outdated policy may work perfectly as a tool call, yet fail to justify an approval.
+## A successful action can still lead to a wrong conclusion
 
-Foresight makes three things explicit before an action:
+An agent reads a policy and concludes that a request is eligible. The file was read
+successfully—but the policy is outdated. The tool worked; the approval lacks support.
 
-1. **Expected evidence:** what the action is expected to reveal.
-2. **Predicted belief:** what the agent is expected to conclude, with evidence references.
-3. **Next decision:** what that conclusion would lead it to do.
+Foresight's demo compares two possible actions before either is executed:
 
-The controller checks those relationships, ranks candidates, and recommends additional
-verification where support is missing. After execution, actual evidence determines
-whether the prediction held and whether completion is allowed.
+| Proposed action | Anticipated conclusion | Evidence check |
+| --- | --- | --- |
+| Read the old policy | “The request is eligible.” | Outdated evidence cannot justify approval |
+| Check the current policy | “The request is eligible.” | The forecast includes current, authoritative evidence |
 
-“Belief” means an explicit record of claims. Foresight does not read a model's hidden
-thoughts or activations.
+The controller selects the current-policy check. Its supplied observation then says
+the request is **not eligible**. Foresight detects the mismatch, recommends revising
+the belief, and withholds completion.
 
-## Quickstart
+**The forecast guides the choice. The observation determines what is supported.**
 
-Requires **Python 3.10+** and Git. The demo needs no API key and has no third-party
-runtime dependencies.
+## Run the demo
+
+Requires **Python 3.10+** and Git. Once cloned, the demo runs offline with no API
+key or third-party runtime dependencies.
 
 ```bash
 git clone https://github.com/metacognisum/The-Foresight-Agent.git
@@ -43,31 +46,7 @@ cd The-Foresight-Agent
 python3 -m foresight.demo
 ```
 
-For an installed CLI, create an environment first:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install .
-foresight
-```
-
-On Windows, use `py` instead of `python3` and activate the environment with
-`.venv\Scripts\Activate.ps1` in PowerShell. Installation may download build
-requirements; running the demo directly from the checkout does not need a download.
-The CLI currently runs the demo; it does not accept arbitrary tasks.
-
-## What the demo shows
-
-Two hand-authored forecasts compete:
-
-| Candidate | Predicted belief | Controller finding |
-| --- | --- | --- |
-| Read an old policy | The request is eligible | The source is outdated; approval lacks support |
-| Check the current policy | The request is eligible | The predicted evidence could justify approval |
-
-Foresight selects the current-policy check. The supplied observation then says the
-request is **not eligible**, contradicting its forecast. The result includes:
+The command prints a JSON trace. The key fields are:
 
 ```text
 selected.action: check_current_policy
@@ -75,138 +54,80 @@ transition.intervention: revise_belief
 completion_allowed: false
 ```
 
-The command prints the full JSON trace. No real approval is performed. This example
-shows the control mechanism; it does not measure a model's ability to predict.
+The scenario uses hand-authored forecasts and observations. It demonstrates the
+mechanism without executing a real approval.
 
-## Architecture
+For the installed CLI, Windows setup, and a complete Python example, see the
+[usage guide](docs/usage.md).
+
+## How it works
+
+Each candidate forecast describes **expected evidence**, a **predicted belief with
+source references**, and the **decision that belief would lead to**. The controller
+checks these relationships and ranks candidates. The application executes the
+recommendation and supplies observations for comparison.
 
 ```mermaid
 flowchart TD
-    S[Observed task state] --> P[Candidate forecasts]
-    P --> E[Expected evidence]
-    E --> B[Predicted belief and citations]
-    B --> D[Proposed next decision]
-    D --> C[Evidence and decision checks]
-    C --> I[Action or verification recommendation]
-    I --> X[Application executor]
-    X --> O[Actual observations]
-    O --> M[Prediction mismatch check]
-    M --> S
-    O --> G[Completion gate]
+    F[Forecast: evidence, belief, next decision] --> C[Check support and rank actions]
+    C --> A[Application executes action or verification]
+    A --> O[Actual observations]
+    F -. Expected evidence .-> M[Compare forecast with observation]
+    O --> M
+    M --> R[Recommend continuation or revision]
+    O --> G[Check completion requirements]
 ```
 
-The application supplies forecasts and executes recommendations. The kernel provides
-checks, ranking, discrepancy reporting, and completion gating. Predictions alone
-never add facts to the observed state.
+Predictions never automatically become observed facts. A supported belief can also
+contradict the goal: “the request is ineligible” may be correct even though approval
+is blocked. Here, *belief* means an explicit claim record, not a model's hidden thoughts.
 
-## Python API
+## Current capabilities and roadmap
 
-```python
-from foresight import (
-    Belief, Controller, Evidence, Forecast, Requirement, State, observe,
-)
-
-controller = Controller((Requirement("eligible", "yes"),))
-state = State()
-
-expected = Evidence(
-    id="policy-result", claim="eligible", value="yes",
-    source="current-policy", authoritative=True, current=True,
-)
-forecast = Forecast(
-    action="check_policy",
-    evidence=(expected,),
-    beliefs=(Belief("eligible", "yes", ("policy-result",)),),
-    next_decision="complete",
-    success_probability=0.8,
-)
-
-assessment = controller.choose(state, (forecast,))
-assert assessment.intervention == "execute_then_check"
-assert controller.complete(state) is False  # A forecast is not an observation.
-
-# Illustrative observation; a real application must obtain this from its executor.
-actual = Evidence(
-    id="observed-result", claim="eligible", value="no",
-    source="current-policy", authoritative=True, current=True,
-)
-transition = observe(state, forecast, (actual,), action_succeeded=True)
-assert transition.intervention == "revise_belief"
-assert controller.complete(transition.state) is False
-```
-
-`success_probability` refers to **tool execution success**. Its Brier score does
-not measure belief truth or final task success. Candidate scores are documented
-heuristics, not learned weights.
-
-| Interface | Responsibility |
+| Available in this preview | Next milestones |
 | --- | --- |
-| `Evidence` / `State` | Preserve source-linked observations |
-| `Belief` / `Forecast` | Describe anticipated claims and action consequences |
-| `Requirement` | Define application-owned evidence conditions |
-| `Controller.assess()` | Identify unsupported beliefs and decision gaps |
-| `Controller.choose()` | Rank candidate forecasts and return a recommendation |
-| `observe()` | Record observations and flag prediction mismatches |
-| `Controller.complete()` | Check actual evidence against completion requirements |
+| Structured evidence, beliefs, and forecasts | Live model adapter for generating forecasts |
+| Evidence checks and candidate ranking | Shadow-mode evaluation of predicted beliefs |
+| Prediction mismatch reports | Tool execution and intervention dispatch |
+| Completion checks over observed evidence | Persistent traces and bounded runs |
+| Offline demo and regression tests | Controlled evaluations across task types |
 
-## Scope and limitations
-
-**Available:** structured forecasts, source checks, conflict handling, candidate
-ranking, mismatch detection, completion checks, a demo, and tests.
-
-**Planned:** live model adapters, tool execution, intervention dispatch, persistent
-traces, calibrated predictors, and controlled evaluations across task types.
-
-- Evidence matching uses exact structured predicates, not natural-language entailment.
-- Source authority and freshness must come from trusted application logic. The kernel
-  cannot authenticate a source or prevent a caller from fabricating evidence.
-- A supported belief can contradict the desired outcome. That belief remains valid,
-  while the completion requirement remains unsatisfied.
-- Conflicting qualifying observations block completion. Records cannot be overwritten;
-  source retraction and supersession are not yet supported.
-- Intervention recommendations must be enforced by the application executor. This
-  prototype does not provide a sandbox, permission system, or production runtime.
+This preview is a control kernel. Applications provide forecasts, trusted source
+attributes, and execution. Matching uses exact structured facts; it does not establish
+natural-language truth or authenticate sources. Conflicting qualifying evidence blocks
+completion, and source retraction is not yet supported. See the
+[integration boundaries](docs/usage.md#integration-boundaries) before extending it.
 
 ## Research foundations
 
-The design draws engineering inspiration from forward models, reality monitoring,
-metacognition, and prospective neural sequences. These connections do not establish
-biological fidelity or research novelty.
+Forward models motivate anticipating consequences. Reality monitoring motivates
+separating imagined information from observation. Metacognitive monitoring motivates
+checking whether a conclusion is justified. These are engineering inspirations;
+they do not establish biological fidelity or novelty.
 
-Related AI work includes [RAP](https://arxiv.org/abs/2305.14992),
+The research question is concrete: **does predicting future beliefs improve decisions
+beyond using the same evidence checks without forecasting, at a comparable budget?**
+No benchmark advantage has been established.
+
+Read the [neuroscience rationale](docs/neuroscience.md) for evidence and limitations,
+and the [evaluation plan](docs/research-plan.md) for baselines and falsification criteria.
+Related work includes [RAP](https://arxiv.org/abs/2305.14992),
 [Reflexion](https://arxiv.org/abs/2303.11366), and
-[WorldEvolver](https://arxiv.org/abs/2606.30639). Foresight makes no claim to be the
-first predictive or metacognitive agent.
+[WorldEvolver](https://arxiv.org/abs/2606.30639).
 
-- [Neuroscience foundations: evidence, analogies, and limitations](docs/neuroscience.md)
-- [Research plan: architecture, prior work, baselines, and falsification criteria](docs/research-plan.md)
+## Contributing
 
-The key experiment is whether forecasting beliefs improves decisions beyond using
-the same evidence checks without forecasting, at a comparable total budget.
-**No benchmark advantage has been established.**
-
-## Development
+Counterexamples, evidence-handling improvements, and reproducible evaluations are
+especially welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ```bash
 python3 -m unittest discover -v
-python3 -m foresight.demo
-git diff --check
 ```
 
-CI is configured for Python 3.10, 3.12, and 3.14. It runs the tests and smoke-tests
-the installed CLI outside the source tree. See the workflow badge for remote results.
+CI is configured for Python 3.10, 3.12, and 3.14 and checks the installed CLI outside
+the source tree. The test badge above links to current workflow results.
 
-```text
-foresight/             Control kernel and offline demo
-tests/                 Evidence and decision regression tests
-docs/                  Scientific rationale and evaluation protocol
-.github/workflows/     CI configuration
-```
-
-Read [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and
-[CHANGELOG.md](CHANGELOG.md) for release notes. The distribution name is
-`metacognisum-foresight`; the import and CLI name is `foresight`. The package has
-not been published to PyPI.
+[Source](foresight/) · [Tests](tests/) · [Release notes](CHANGELOG.md)
 
 ## License
 
