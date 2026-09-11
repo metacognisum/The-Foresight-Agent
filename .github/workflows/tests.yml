@@ -18,4 +18,6 @@ jobs:
       - run: python -m unittest discover -v
       - name: Smoke-test installed package outside source tree
         working-directory: ${{ runner.temp }}
-        run: foresight
+        run: |
+          foresight
+          foresight-evaluate --output foresight-traces

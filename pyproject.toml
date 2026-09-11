@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "metacognisum-foresight"
-version = "0.1.0a1"
+version = "0.2.0a1"
 description = "Experimental control of agents through predicted evidence and belief transitions"
 requires-python = ">=3.10"
 license = "Apache-2.0"
@@ -26,6 +26,7 @@ Documentation = "https://github.com/metacognisum/The-Foresight-Agent#readme"
 
 [project.scripts]
 foresight = "foresight.demo:main"
+foresight-evaluate = "foresight.experiment:main"
 
 [tool.setuptools.packages.find]
 include = ["foresight*"]

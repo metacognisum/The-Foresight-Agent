@@ -14,6 +14,7 @@ source .venv/bin/activate
 python -m pip install -e .
 python -m unittest discover -v
 python -m foresight.demo
+python -m foresight.experiment
 git diff --check
 ```
 

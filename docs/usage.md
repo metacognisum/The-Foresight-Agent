@@ -20,6 +20,8 @@ On Windows, use `py` instead of `python3` and activate with
 Installation may download build requirements. Running `python3 -m foresight.demo`
 directly from the checkout requires no installation or network connection.
 The CLI runs the scripted demo; it does not accept arbitrary tasks.
+The new `foresight-evaluate` command runs the bounded document-agent comparison;
+see [agent integration](agent.md) for custom tools and requirements.
 
 The distribution name is `metacognisum-foresight`; the import and CLI name is
 `foresight`. The package has not been published to PyPI.
@@ -85,8 +87,9 @@ heuristics, not learned weights.
   source retraction and supersession are not yet supported.
 - Applications must enforce intervention recommendations, including when every
   candidate requires verification. Selecting a candidate does not authorize execution.
-- This preview has no live model adapter, external tool executor, sandbox, permission
-  system, or persistent runtime. The example performs no external approvals.
+- The bounded runtime supports a JSON model adapter, local document reads and
+  persistent traces. It has no sandbox or permission system. Register only trusted,
+  read-only executors. Neither example performs external approvals.
 
 ## Verification
 

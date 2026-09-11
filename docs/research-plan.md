@@ -6,10 +6,11 @@ Predict an evidence transition and an explicit belief transition, then check whe
 the proposed subsequent decision is warranted. A discrepancy should select a
 specific intervention rather than a generic reflection prompt.
 
-The kernel implements the checking boundary with supplied forecasts. It does not
-yet implement a learned forecast generator or execute the recommended intervention.
-This distinction is essential: a hand-authored successful example does not show that
-an LLM can forecast its own mistakes.
+The kernel implements the checking boundary. The runtime now accepts structured
+model forecasts and executes registered read-only tools, including verification
+reads. The offline comparison still uses a scripted predictor: it does not show
+that an LLM can forecast its own mistakes. The Ollama adapter requires separate
+live evaluation before any model-performance claim.
 
 ## Interfaces
 
@@ -83,11 +84,12 @@ or if the cost exceeds the value of prevented failures.
 
 ## Implementation sequence
 
-1. Current: typed control kernel, scripted demo, invariants, scientific rationale.
-2. Next: structured model adapter and executor with application-owned evidence checks.
+1. Implemented: typed kernel, scripted demo, invariants, scientific rationale.
+2. Implemented: structured model adapter, read-only document executor, step/cost
+   budgets, JSONL traces and five-case deterministic baseline comparison.
 3. Add a shadow mode: record forecasts before actions without influencing selection,
    then compare predicted and realized belief/decision records.
-4. Implement intervention dispatch, bounded execution, cancellation and persistent traces.
+4. Extend read-only intervention dispatch with cancellation and application-specific recovery.
 5. Run held-out equal-budget experiments, then decide which mechanisms merit a release.
 
 Shadow mode is needed to test whether the belief predictor predicts actual behavior

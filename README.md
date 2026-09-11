@@ -11,7 +11,7 @@ and decisions. Its Python control kernel checks whether an anticipated conclusio
 is supported before recommending an action, then compares the forecast with what
 actually happened.
 
-**Research preview · 0.1.0a1 · Offline demo · Scripted forecasts**
+**Research preview · 0.2.0a1 · Bounded document agent · Optional Ollama adapter**
 
 [Run the demo](#run-the-demo) · [How it works](#how-it-works) ·
 [Python guide](docs/usage.md) · [Research](#research-foundations) ·
@@ -60,6 +60,47 @@ mechanism without executing a real approval.
 For the installed CLI, Windows setup, and a complete Python example, see the
 [usage guide](docs/usage.md).
 
+## Run the working agent comparison
+
+```bash
+python3 -m foresight.experiment --output runs/offline-01
+```
+
+This runs real reads of temporary JSON documents through a registered executor.
+Each step forecasts candidate reads, executes one, compares its observations with
+the forecast, derives supported beliefs, and replans until completion or a budget
+limit. Forecasts are saved to JSONL **before execution**. The output directory must
+be new to protect previous traces.
+
+The default predictor uses scripted document previews; no model or network is
+needed. Five hand-authored cases compare foresight with cheapest-first reads using
+the same completion gate and tool budgets:
+
+| Case | Baseline reads | Foresight reads | Outcome |
+| --- | ---: | ---: | --- |
+| Stale source | 2 | 1 | Both complete; foresight skips the archive |
+| Clean source | 1 | 1 | Both complete |
+| Contradictory result | 1 | 1 | Both withhold completion |
+| Failed primary read | 2 | 2 | Both recover using the backup |
+| Misleading preview | 1 | 2 | Both complete; foresight wastes a read |
+
+With `--max-steps 1`, the misleading preview prevents foresight from completing
+while the baseline completes. Prediction can help **or hurt** selection.
+These are mechanism examples, not benchmark evidence. Matching tool budgets does
+not account for additional model tokens or latency. Completion means support in
+observed evidence; unvisited documents may still contain contradictions.
+
+For model-generated forecasts, explicitly select a model already available in
+your running Ollama server:
+
+```bash
+python3 -m foresight.experiment --model YOUR_LOCAL_MODEL --output runs/model-01
+```
+
+The adapter validates the model's JSON and attaches application-owned provenance
+and costs. Invalid forecasts stop the run without executing a tool. It does not
+download a model. See [agent integration and traces](docs/agent.md).
+
 ## How it works
 
 Each candidate forecast describes **expected evidence**, a **predicted belief with
@@ -86,14 +127,14 @@ is blocked. Here, *belief* means an explicit claim record, not a model's hidden 
 
 | Available in this preview | Next milestones |
 | --- | --- |
-| Structured evidence, beliefs, and forecasts | Live model adapter for generating forecasts |
-| Evidence checks and candidate ranking | Shadow-mode evaluation of predicted beliefs |
-| Prediction mismatch reports | Tool execution and intervention dispatch |
-| Completion checks over observed evidence | Persistent traces and bounded runs |
-| Offline demo and regression tests | Controlled evaluations across task types |
+| Structured evidence, beliefs, and forecasts | Shadow-mode evaluation of predicted beliefs |
+| JSON model adapter and optional Ollama transport | Held-out live-model evaluations |
+| Registered read-only document execution | Additional application-owned tool adapters |
+| Step/cost bounds and persistent JSONL traces | Cancellation and broader runtime controls |
+| Baseline comparison and regression tests | Equal-total-budget evaluations across task types |
 
-This preview is a control kernel. Applications provide forecasts, trusted source
-attributes, and execution. Matching uses exact structured facts; it does not establish
+This preview includes a control kernel and a bounded read-only runtime. Applications
+provide tools and trusted source attributes. Matching uses exact structured facts; it does not establish
 natural-language truth or authenticate sources. Conflicting qualifying evidence blocks
 completion, and source retraction is not yet supported. See the
 [integration boundaries](docs/usage.md#integration-boundaries) before extending it.
